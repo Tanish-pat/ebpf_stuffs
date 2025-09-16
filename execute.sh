@@ -1,10 +1,11 @@
 #!/bin/sh
 
-if [ -z "$1" ]; then
-    echo "Usage: $0 <commit-message>"
-    exit 1
-fi
+# Default commit message
+DEFAULT_MSG="pushed updates"
+
+# Use provided message or default
+MSG="${1:-$DEFAULT_MSG}"
 
 git add .
-git commit -m "$1"
+git commit -m "$MSG"
 git push -u origin main
