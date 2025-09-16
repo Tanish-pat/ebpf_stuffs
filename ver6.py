@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-# file_ops_monitor_fixed.py
-# Requirements: python3-bcc (BCC), run as root
 
 import os
 import time
 import datetime
 from bcc import BPF
 
-TARGET_PID = os.getpid()  # change to specific PID if you want to monitor another process
+TARGET_PID = os.getpid()
 
 prog = r"""
 #include <uapi/linux/ptrace.h>
