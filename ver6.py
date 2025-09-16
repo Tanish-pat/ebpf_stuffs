@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-# file_ops_monitor_fixed.py
-# Requirements: python3-bcc (BCC), run as root
 
 import os
 import time
