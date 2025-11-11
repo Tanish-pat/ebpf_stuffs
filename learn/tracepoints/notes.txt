@@ -1,0 +1,51 @@
+tanish@ubuntu-Standard-PC-i440FX-PIIX-1996:~/snap/snapd-desktop-integration/253/Desktop/ebpf_stuffs/learn/tracepoints$ sudo cat /sys/kernel/debug/tracing/events/sysc
+alls/sys_enter_openat/format
+name: sys_enter_openat
+ID: 764
+format:
+        field:unsigned short common_type;       offset:0;       size:2; signed:0;
+        field:unsigned char common_flags;       offset:2;       size:1; signed:0;
+        field:unsigned char common_preempt_count;       offset:3;       size:1; signed:0;
+        field:int common_pid;   offset:4;       size:4; signed:1;
+
+        field:int __syscall_nr; offset:8;       size:4; signed:1;
+        field:int dfd;  offset:16;      size:8; signed:0;
+        field:const char * filename;    offset:24;      size:8; signed:0;
+        field:int flags;        offset:32;      size:8; signed:0;
+        field:umode_t mode;     offset:40;      size:8; signed:0;
+
+print fmt: "dfd: 0x%08lx, filename: 0x%08lx, flags: 0x%08lx, mode: 0x%08lx", ((unsigned long)(REC->dfd)), ((unsigned long)(REC->filename)), ((unsigned long)(REC->flags)), ((unsigned long)(REC->mode))
+
+common_* fields: Provided by the tracepoint infrastructure itself. These exist for all tracepoints, for example:
+common_type, common_flags, common_preempt_count, common_pid
+Used internally by ftrace and BPF to identify and manage events.
+__syscall_nr: Which syscall is being invoked.
+The actual syscall arguments: dfd, filename, flags, mode.
+So args in your BPF program (ctx->args) are just the syscall-specific fields, not the common_* fields.
+
+ctx->args is an array of the syscall arguments only, extracted by the BPF tracepoint helper.
+It does not include common_* fields; those are part of the tracepoint struct in /sys/kernel/debug/tracing, but BPF gives you just the syscall args in ctx->args[].
+So the mapping is:
+/sys/kernel/debug/tracing field	ctx->args[] index
+dfd	args[0]
+filename	args[1]
+flags	args[2]
+mode	args[3]
+Similarly, for close:
+Field	args[] index
+fd	args[0]
+
+
+
+read ->
+
+return from open-> maintain the fd+pid.
+then when open returns, then this pid is interested, as open returns fd. we store the data from the user in some local place. when read enters,
+we fake it via the local place, ie , put it there and read 0 bytes from actual file.
+
+for write-> whenver it hapopens, we know that that `fd` is used, then in the syscall enter, we don't do the write, we will modify the write parameter ie 0 bytes,
+during the enter, we write to local place and do write 0 bytes to actual bytes.
+
+
+
+

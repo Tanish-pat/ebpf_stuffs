@@ -71,7 +71,7 @@ TRACEPOINT_PROBE(syscalls, sys_enter_openat) {
     else
         req.fname[0] = '\0';
 
-    open_tmp.update(&pid_tgid, &req);
+    open_tmp.update(&pid_tgid, &req); // type {u64, struct open_req_t}
     return 0;
 }
 

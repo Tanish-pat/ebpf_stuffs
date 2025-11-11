@@ -1,0 +1,25 @@
+sudo cat /sys/kernel/debug/tracing/trace_pipe
+sudo perf list tracepoint
+sudo perf list tracepoint | head
+sudo bpftool feature probe | grep tracepoint
+sudo ls /sys/kernel/debug/tracing/events
+sudo cat /sys/kernel/debug/tracing/events/sched/sched_switch/format
+sudo bpftool prog show
+sudo bpftool net show
+sudo bpftool cgroup show
+sudo bpftool tracing show
+sudo bpftool map show
+sudo bpftool link show
+sudo bpftool btf dump file trace.bpf.o
+sudo bpftool gen skeleton trace.bpf.o
+sudo bpftool prog dump xlated id 278
+sudo bpftool prog dump jited id 278
+sudo cat /sys/kernel/debug/tracing/trace_pipe
+sudo cat /sys/kernel/debug/tracing/available_events
+sudo cat /sys/kernel/debug/tracing/available_events | grep sys_enter
+sudo cat /sys/kernel/debug/tracing/available_events | grep handshake
+sudo cat /sys/kernel/debug/tracing/available_events | grep
+sudo bpftool prog show name handle_execve
+sudo bpftool prog show name handle_openat
+sudo cat /sys/kernel/debug/tracing/available_events | grep syscalls
+sudo cat /sys/kernel/debug/tracing/events/syscalls/sys_enter_execve/format

@@ -1,0 +1,68 @@
+programs and maps are created using the BPF_PROG_LOAD and BPF_MAP_CREATE commands
+
+the kernel keeps track of the number of references to eBPF programs and maps, releasing them when the reference count drops to zero.
+
+BPF objects can be pinned to a filesystem
+
+BPF links can be used to create additional references
+
+BPF_MAP_UPDATE_ELEM can be used to create entries in a map from user space.
+
+BPF_MAP_LOOKUP_ELEM and BPF_MAP_DELETE_ELEM can be used for retrieving and deleting values from a map.
+
+BPF_MAP_GET_NEXT_KEY for finding the next key that’s present in a map, used for iterating through all the valid entries.
+
+perf_event_open() and ioctl() can be used to attach eBPF programs to kprobe events
+
+
+sudo ls /sys/kernel/debug/tracing/events/
+
+
+sudo bpftool map show
+sudo bpftool map show pinned /sys/fs/bpf/r_buffer_execve -> inspect a pinned map.
+sudo bpftool map dump name r_buffer_execve
+
+sudo bpftool link show -> works only with pinned eBPF links, not maps
+sudo bpftool link show pinned /sys/fs/bpf/<link_name>
+
+sudo bpftool prog show -> used to verify that the eBPF program is loaded
+sudo bpftool prog show name trace_execve
+
+
+sudo cat /sys/kernel/debug/tracing/trace_pipe -> prints both execve called and openat called
+sudo cat /sys/kernel/debug/tracing/events/syscalls/sys_enter_execve/format -> used to confirm schema matches the struct
+sudo ls /sys/kernel/debug/tracing/events/syscalls/
+
+
+
+if uncommented and free
+sudo bpftool prog show pinned /sys/fs/bpf/trace_execve_prog
+sudo bpftool link show pinned /sys/fs/bpf/trace_execve_link
+sudo bpftool map show pinned /sys/fs/bpf/r_buffer_execve
+
+if commented, we can follow these
+sudo bpftool prog load trace.bpf.o /sys/fs/bpf/trace_execve_prog -> Loads your BPF ELF (trace.bpf.o) and Pins the program at /sys/fs/bpf/trace_execve_prog
+
+sudo bpftool map show , first to get the id of the map, then below one.
+sudo bpftool map pin id 360 /sys/fs/bpf/r_buffer_execve -> used to pin the map with id 360 at /sys/fs/bpf/r_buffer_execve
+
+sudo bpftool link show pinned /sys/fs/bpf/trace_execve_link -> to check if link is pinned
+
+
+
+
+man bpf-helpers
+man bpf
+
+
+fake file system -> read and writes need be faked sort of
+open can be normalised
+have the buffers ready for these operations
+open to get the file descriptor
+maintain pid also, could be useful
+process_id + file_desciptor needed for action
+
+cat f1, read f1, write f1. do not touch the original file.
+
+
+fat12 -> sectors, working
