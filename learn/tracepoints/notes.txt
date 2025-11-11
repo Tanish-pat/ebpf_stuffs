@@ -37,7 +37,6 @@ fd	args[0]
 
 
 
-read ->
 
 return from open-> maintain the fd+pid.
 then when open returns, then this pid is interested, as open returns fd. we store the data from the user in some local place. when read enters,

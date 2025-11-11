@@ -3,7 +3,7 @@ BPF_CLANG      	:= clang
 BPF_LLVM_STRIP 	:= llvm-strip
 CC 			   	:= g++
 # Compiler flags
-CFLAGS 		   	:= -Wall -O2 -std=c++17
+CFLAGS 		   	:= -Wall -O2 -std=c++20
 BPF_CFLAGS     	:= -O2 -g -target bpf -D__TARGET_ARCH_x86
 
 # Include paths (adjust if needed)

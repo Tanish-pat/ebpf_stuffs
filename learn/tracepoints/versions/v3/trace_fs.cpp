@@ -104,11 +104,12 @@ int main() {
     }
 
     cout << "Attached. Interactive commands:\n"
-        << "  o <path>  -> open and keep open (returns fd)\n"
-        << "  c <fd>     -> close fd\n"
-        << "  q          -> quit\n"
-        << "Listening for openat/close. Only events from this process (pid="
-        << loader_pid << ") will be shown.\n";
+                << "  oc <path>   -> open then close (generate open+close)\n"
+                << "  o <path>  -> open and keep open (returns fd)\n"
+                << "  c <fd>     -> close fd\n"
+                << "  q          -> quit\n"
+                << "Listening for openat/close. Only events from this process (pid="
+                << loader_pid << ") will be shown.\n";
 
     vector<int> kept_fds;
 
@@ -129,7 +130,17 @@ int main() {
             line = trim(line);
             if (line.empty()) continue;
             if (line == "q") break;
-            if (line.starts_with("o ")) {
+            if (line.starts_with("oc ")) {
+                string path = trim(line.substr(3));
+                if (path.empty()) { cout << "usage: oc <path>\n"; continue; }
+                int fd = open(path.c_str(), O_RDONLY);
+                if (fd < 0)
+                    cerr << "open failed: " << strerror(errno) << '\n';
+                else {
+                    close(fd);
+                    cout << "Triggered open+close on " << path << '\n';
+                }
+            } else if (line.starts_with("o ")) {
                 string path = trim(line.substr(2));
                 if (path.empty()) { cout << "usage: o <path>\n"; continue; }
                 int fd = open(path.c_str(), O_RDONLY);

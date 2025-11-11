@@ -1,0 +1,6 @@
+hello, this is a shadow file, we are here to see how shadow files work.
+the main idea is to intercept open, read, write, close syscalls via tracepoints.
+so when open happens, we note the pid+fd opened.
+and when read happens, we check if that pid+fd is in our list, if yes, we fake the read via some local place.
+similarly for write, when write happens, we check if that pid+fd is in our
+list, if yes, we fake the write via some local place.
