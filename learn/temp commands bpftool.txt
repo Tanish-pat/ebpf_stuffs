@@ -22,4 +22,4 @@ sudo cat /sys/kernel/debug/tracing/available_events | grep
 sudo bpftool prog show name handle_execve
 sudo bpftool prog show name handle_openat
 sudo cat /sys/kernel/debug/tracing/available_events | grep syscalls
-sudo cat /sys/kernel/debug/tracing/events/syscalls/sys_enter_execve/format
+sudo cat /sys/kernel/debug/tracing/events/syscalls/sys_enter_write/format

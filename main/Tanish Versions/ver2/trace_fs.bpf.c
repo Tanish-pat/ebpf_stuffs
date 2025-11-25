@@ -1,0 +1,136 @@
+// trace_fs.bpf.c
+// SPDX-License-Identifier: (LGPL-2.1 OR BSD-2-Clause)
+#include "vmlinux.h"
+#include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
+
+char LICENSE[] SEC("license") = "GPL";
+
+/* Event structure for ring buffer */
+struct fs_event {
+    u64 ts_ns;      // timestamp
+    u32 pid;        // pid of process
+    char comm[16];  // task comm
+    u8 type;        // 1=openat, 2=close
+    int fd;         // valid for close
+    char filename[256]; // valid for openat
+};
+
+/* Ring buffer map for events */
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1 << 24);
+} r_buffer_fs SEC(".maps");
+
+/* Synthetic user-space file blocks */
+struct fake_file_block {
+    char data[4096];
+};
+
+/* Synthetic FS map: key = filename, value = file content */
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, char[256]);
+    __type(value, struct fake_file_block);
+    __uint(max_entries, 128);
+} synthetic_fs SEC(".maps");
+
+/* Map to track ongoing reads: key=pid_tgid, value=user buffer pointer + fd */
+struct read_info {
+    u64 buf_ptr;
+    int fd;
+};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, u64);          // pid_tgid
+    __type(value, struct read_info);
+    __uint(max_entries, 1024);
+} read_buffers SEC(".maps");
+
+/* Map to track fd -> filename, updated from user-space via BPF API */
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, int);           // fd
+    __type(value, char[256]);   // filename
+    __uint(max_entries, 512);
+} fd_to_path SEC(".maps");
+
+/* Trace openat syscall */
+SEC("tracepoint/syscalls/sys_enter_openat")
+int trace_openat(struct trace_event_raw_sys_enter *ctx) {
+    const char *filename_ptr = (const char *)ctx->args[1];
+    struct fs_event *e = bpf_ringbuf_reserve(&r_buffer_fs, sizeof(*e), 0);
+    if (!e) return 0;
+
+    e->ts_ns = bpf_ktime_get_ns();
+    e->pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(e->comm, sizeof(e->comm));
+    e->type = 1;
+    e->fd = -1;
+    bpf_probe_read_user_str(e->filename, sizeof(e->filename), filename_ptr);
+    bpf_ringbuf_submit(e, 0);
+
+    return 0;
+}
+
+/* Trace close syscall */
+SEC("tracepoint/syscalls/sys_enter_close")
+int trace_close(struct trace_event_raw_sys_enter *ctx) {
+    struct fs_event *e = bpf_ringbuf_reserve(&r_buffer_fs, sizeof(*e), 0);
+    if (!e) return 0;
+
+    e->ts_ns = bpf_ktime_get_ns();
+    e->pid = bpf_get_current_pid_tgid() >> 32;
+    bpf_get_current_comm(e->comm, sizeof(e->comm));
+    e->type = 2;
+    e->fd = (int)ctx->args[0];
+    e->filename[0] = '\0';
+    bpf_ringbuf_submit(e, 0);
+
+    /* remove fd->path mapping */
+    int fd;
+    bpf_probe_read_kernel(&fd, sizeof(fd), &e->fd);
+    bpf_map_delete_elem(&fd_to_path, &fd);
+
+    return 0;
+}
+
+/* Trace enter_read: store user-space buffer pointer + fd */
+SEC("tracepoint/syscalls/sys_enter_read")
+int trace_read_enter(struct trace_event_raw_sys_enter *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct read_info info = {};
+    info.fd = (int)ctx->args[0]; // eg fd 22
+    info.buf_ptr = (u64)ctx->args[1]; // user-space buffer pointer
+    bpf_map_update_elem(&read_buffers, &pid_tgid, &info, BPF_ANY);
+    return 0;
+}
+
+/* Trace exit_read: replace read content with synthetic FS content */
+SEC("tracepoint/syscalls/sys_exit_read")
+int trace_read_exit(struct trace_event_raw_sys_exit *ctx) {
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    struct read_info *info = bpf_map_lookup_elem(&read_buffers, &pid_tgid);
+    if (!info) return 0;
+    if (ctx->ret <= 0) goto cleanup;
+
+    /* Lookup fd -> filename */
+    char *key = bpf_map_lookup_elem(&fd_to_path, &info->fd); // fd -> filename
+    if (!key) goto cleanup;
+
+    /* Lookup synthetic FS content */
+    struct fake_file_block *blk = bpf_map_lookup_elem(&synthetic_fs, key); // filename -> synthetic content
+    if (!blk) goto cleanup;
+
+    /* Copy only the requested number of bytes */
+    size_t copy_len = (size_t)ctx->ret; // how many bytes to be read
+    if (copy_len == 0) return 0;
+    if (copy_len > sizeof(blk->data)) copy_len = sizeof(blk->data);
+    if (!info->buf_ptr) return 0;
+
+    bpf_probe_write_user((void *)info->buf_ptr, blk->data, copy_len); // OWERWRITE USER BUFFER
+
+cleanup:
+    bpf_map_delete_elem(&read_buffers, &pid_tgid);
+    return 0;
+}
